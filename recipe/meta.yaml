@@ -1,5 +1,5 @@
 {% set name = "ttyd" %}
-{% set version = "1.6.0" %}
+{% set version = "1.6.1" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/tsl0922/{{ name }}/archive/{{ version }}.tar.gz
-  sha256: d14740bc82be0d0760dd0a3c97acbcbde490412a4edc61edabe46d311b068f83
+  sha256: d72dcca3dec00cda87b80a0a25ae4fee2f8b9098c1cdb558508dcb14fbb6fafc
 
 build:
   number: 0
@@ -17,7 +17,7 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - cmake 
+    - cmake
     - pkg-config
     - vim
   host:
@@ -36,7 +36,7 @@ about:
   license: MIT
   license_family: MIT
   license_file: LICENSE
-  summary: 'Share your terminal over the web'
+  summary: Share your terminal over the web
 
   dev_url: https://github.com/tsl0922/ttyd
 
