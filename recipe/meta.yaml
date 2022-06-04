@@ -26,6 +26,8 @@ requirements:
     - libwebsockets
     - openssl
     - libuv
+  run:
+    - libuv
 
 test:
   commands:
