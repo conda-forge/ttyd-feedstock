@@ -25,6 +25,7 @@ requirements:
     - json-c
     - libwebsockets
     - openssl
+    - libuv
   run:
     - json-c
 
