@@ -26,7 +26,7 @@ requirements:
     - libwebsockets
     - openssl
     - libuv
-    - libz
+    - zlib
   run:
     - libuv
 
