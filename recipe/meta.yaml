@@ -1,5 +1,5 @@
 {% set name = "ttyd" %}
-{% set version = "1.6.3" %}
+{% set version = "1.7.2" %}
 
 package:
   name: {{ name|lower }}
@@ -7,10 +7,10 @@ package:
 
 source:
   url: https://github.com/tsl0922/{{ name }}/archive/{{ version }}.tar.gz
-  sha256: 1116419527edfe73717b71407fb6e06f46098fc8a8e6b0bb778c4c75dc9f64b9
+  sha256: edc44cd5319c0c9d0858081496cae36fc5c54ee7722e0a547dde39537dfb63de
 
 build:
-  number: 2
+  number: 0
   skip: true  # [not linux]
 
 requirements:
