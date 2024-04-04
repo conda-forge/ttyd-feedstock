@@ -11,6 +11,7 @@ source:
 
 build:
   number: 0
+  skip: true  #[win]
 
 requirements:
   build:
@@ -33,7 +34,7 @@ test:
     - ttyd
 
 about:
-  home: http://github.com/tsl0922/ttyd
+  home: https://github.com/tsl0922/ttyd
   license: MIT
   license_family: MIT
   license_file: LICENSE
