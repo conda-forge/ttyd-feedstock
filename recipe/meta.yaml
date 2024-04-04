@@ -38,7 +38,6 @@ about:
   license_family: MIT
   license_file: LICENSE
   summary: Share your terminal over the web
-
   dev_url: https://github.com/tsl0922/ttyd
 
 extra:
