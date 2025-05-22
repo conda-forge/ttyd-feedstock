@@ -1,22 +1,24 @@
-{% set name = "ttyd" %}
-{% set version = "1.7.7" %}
+context:
+  name: ttyd
+  version: "1.7.7"
 
 package:
-  name: {{ name|lower }}
-  version: {{ version }}
+  name: ${{ name|lower }}
+  version: ${{ version }}
 
 source:
-  url: https://github.com/tsl0922/{{ name }}/archive/{{ version }}.tar.gz
+  url: https://github.com/tsl0922/${{ name }}/archive/${{ version }}.tar.gz
   sha256: 039dd995229377caee919898b7bd54484accec3bba49c118e2d5cd6ec51e3650
 
 build:
-  number: 0
-  skip: true  # [win]
+  number: 1
+  skip: win
 
 requirements:
   build:
-    - {{ compiler('c') }}
-    - {{ compiler('cxx') }}
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
     - ninja
     - cmake
     - pkg-config
@@ -29,17 +31,16 @@ requirements:
   run:
     - libuv
 
-test:
-  commands:
-    - ttyd
+tests:
+  - script:
+      - ttyd
 
 about:
-  home: https://github.com/tsl0922/ttyd
+  homepage: https://github.com/tsl0922/ttyd
   license: MIT
-  license_family: MIT
   license_file: LICENSE
   summary: Share your terminal over the web
-  dev_url: https://github.com/tsl0922/ttyd
+  repository: https://github.com/tsl0922/ttyd
 
 extra:
   recipe-maintainers:
