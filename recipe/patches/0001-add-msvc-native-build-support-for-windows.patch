@@ -1,0 +1,193 @@
+From: conda-forge/ttyd-feedstock
+Subject: [PATCH] Add MSVC native build support for Windows
+
+Backport of https://github.com/tsl0922/ttyd/pull/1502 onto the 1.7.7 tag,
+with two conda-forge specific adjustments:
+
+* libwebsockets is located via find_path/find_library instead of
+  find_package(Libwebsockets), because the CMake package config shipped by
+  the conda-forge win-64 libwebsockets package embeds absolute build-time
+  paths (D:/bld/...) that do not exist on the consuming machine.
+* getopt is located via find_path/find_library instead of
+  find_package(getopt CONFIG), because conda-forge's getopt-win32 package
+  installs a differently named (vcpkg 'unofficial-getopt-win32') config.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1eab7c7..4c7571c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -16,15 +16,21 @@ if(NOT "${GIT_COMMIT}" STREQUAL "")
+     set(TTYD_VERSION "${TTYD_VERSION}-${GIT_COMMIT}")
+ endif()
+ 
+-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
+-if(CMAKE_VERSION VERSION_LESS "3.1")
+-    if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
++if(NOT MSVC)
++    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE")
++    if(CMAKE_VERSION VERSION_LESS "3.1")
++        if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
++            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
++        else()
++            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
++        endif()
+     else()
+-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
++        set(CMAKE_C_STANDARD 99)
+     endif()
+ else()
+-    set(CMAKE_C_STANDARD 99)
++    # MSVC: suppress common warnings for C99 code
++    add_compile_options(/W3 /wd4996 /wd4267 /wd4244)
++    add_compile_definitions(_CRT_SECURE_NO_WARNINGS _GNU_SOURCE)
+ endif()
+ 
+ set(SOURCE_FILES src/utils.c src/pty.c src/protocol.c src/http.c src/server.c)
+@@ -50,7 +56,20 @@ if(JSON-C_FOUND)
+ endif()
+ 
+ find_package(ZLIB REQUIRED)
+-find_package(Libwebsockets 3.2.0 REQUIRED)
++
++if(MSVC)
++    # The CMake package config shipped by the conda-forge libwebsockets build
++    # embeds absolute build-time paths, so locate the library by hand instead.
++    find_path(LIBWEBSOCKETS_INCLUDE_DIR NAMES libwebsockets.h)
++    find_library(LIBWEBSOCKETS_LIBRARY NAMES websockets libwebsockets)
++    find_package_handle_standard_args(LIBWEBSOCKETS
++        REQUIRED_VARS LIBWEBSOCKETS_LIBRARY LIBWEBSOCKETS_INCLUDE_DIR)
++    mark_as_advanced(LIBWEBSOCKETS_INCLUDE_DIR LIBWEBSOCKETS_LIBRARY)
++    set(LIBWEBSOCKETS_INCLUDE_DIRS "${LIBWEBSOCKETS_INCLUDE_DIR}")
++    set(LIBWEBSOCKETS_LIBRARIES "${LIBWEBSOCKETS_LIBRARY}")
++else()
++    find_package(Libwebsockets 3.2.0 REQUIRED)
++endif()
+ 
+ set(INCLUDE_DIRS ${ZLIB_INCLUDE_DIR} ${LIBWEBSOCKETS_INCLUDE_DIRS} ${JSON-C_INCLUDE_DIRS} ${LIBUV_INCLUDE_DIRS})
+ set(LINK_LIBS ${ZLIB_LIBRARIES} ${LIBWEBSOCKETS_LIBRARIES} ${JSON-C_LIBRARIES} ${LIBUV_LIBRARIES})
+@@ -71,6 +90,16 @@ endif()
+ 
+ if(WIN32)
+     list(APPEND LINK_LIBS shell32 ws2_32)
++    if(MSVC)
++        # MSVC has no getopt.h, use the getopt-win32 port instead
++        find_path(GETOPT_INCLUDE_DIR NAMES getopt.h)
++        find_library(GETOPT_LIBRARY NAMES getopt)
++        find_package_handle_standard_args(GETOPT
++            REQUIRED_VARS GETOPT_LIBRARY GETOPT_INCLUDE_DIR)
++        mark_as_advanced(GETOPT_INCLUDE_DIR GETOPT_LIBRARY)
++        list(APPEND INCLUDE_DIRS ${GETOPT_INCLUDE_DIR})
++        list(APPEND LINK_LIBS ${GETOPT_LIBRARY})
++    endif()
+     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/app.rc.in ${CMAKE_CURRENT_BINARY_DIR}/app.rc @ONLY)
+     list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
+ else()
+diff --git a/src/compat.h b/src/compat.h
+new file mode 100644
+index 0000000..096d03a
+--- /dev/null
++++ b/src/compat.h
+@@ -0,0 +1,19 @@
++/* compat.h -- MSVC compatibility shims for POSIX functions */
++#ifndef TTYD_COMPAT_H
++#define TTYD_COMPAT_H
++
++#ifdef _MSC_VER
++#include <string.h>
++#include <sys/stat.h>
++#define strcasecmp _stricmp
++#define strncasecmp _strnicmp
++
++#ifndef S_ISDIR
++#define S_ISDIR(m) (((m) & _S_IFMT) == _S_IFDIR)
++#endif
++#ifndef S_ISREG
++#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
++#endif
++#endif
++
++#endif /* TTYD_COMPAT_H */
+diff --git a/src/protocol.c b/src/protocol.c
+index 53e65d4..7d2eac9 100644
+--- a/src/protocol.c
++++ b/src/protocol.c
+@@ -9,6 +9,7 @@
+ #include "pty.h"
+ #include "server.h"
+ #include "utils.h"
++#include "compat.h"
+ 
+ // initial message list
+ static char initial_cmds[] = {SET_WINDOW_TITLE, SET_PREFERENCES};
+diff --git a/src/pty.c b/src/pty.c
+index 01e9d6b..4be9133 100644
+--- a/src/pty.c
++++ b/src/pty.c
+@@ -4,7 +4,9 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#ifndef _WIN32
+ #include <unistd.h>
++#endif
+ 
+ #ifndef _WIN32
+ #include <sys/ioctl.h>
+@@ -280,7 +282,12 @@ done:
+   return ret;
+ }
+ 
+-static void connect_cb(uv_connect_t *req, int status) { free(req); }
++static void connect_cb(uv_connect_t *req, int status) {
++  if (status != 0) {
++    fprintf(stderr, "connect_cb: pipe connect failed: %s\n", uv_strerror(status));
++  }
++  free(req);
++}
+ 
+ static void CALLBACK conpty_exit(void *context, BOOLEAN unused) {
+   pty_process *process = (pty_process *) context;
+@@ -323,7 +330,7 @@ int pty_spawn(pty_process *process, pty_read_cb read_cb, pty_exit_cb exit_cb) {
+   uv_pipe_connect(out_req, process->out, out_name, connect_cb);
+ 
+   PROCESS_INFORMATION pi = {0};
+-  WCHAR *cmdline, *cwd;
++  WCHAR *cmdline = NULL, *cwd = NULL;
+   cmdline = join_args(process->argv);
+   if (cmdline == NULL) goto cleanup;
+   if (process->envp != NULL) {
+diff --git a/src/server.c b/src/server.c
+index 39f40e9..f05d65d 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -12,6 +12,7 @@
+ #include <sys/stat.h>
+ 
+ #include "utils.h"
++#include "compat.h"
+ 
+ #ifndef TTYD_VERSION
+ #define TTYD_VERSION "unknown"
+@@ -188,7 +189,7 @@ static struct server *server_new(int argc, char **argv, int start) {
+   char *ptr = ts->command;
+   for (int i = 0; i < cmd_argc; i++) {
+     size_t len = strlen(ts->argv[i]);
+-    ptr = memcpy(ptr, ts->argv[i], len + 1) + len;
++    ptr = (char *)memcpy(ptr, ts->argv[i], len + 1) + len;
+     if (i != cmd_argc - 1) {
+       *ptr++ = ' ';
+     }
+diff --git a/src/utils.c b/src/utils.c
+index f3e87d2..5f4df26 100644
+--- a/src/utils.c
++++ b/src/utils.c
+@@ -6,6 +6,8 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
++#include "compat.h"
++
+ #if defined(__linux__) && !defined(__ANDROID__)
+ const char *sys_signame[NSIG] = {
+     "zero", "HUP",  "INT",  "QUIT", "ILL",    "TRAP",   "ABRT",  "UNUSED", "FPE",  "KILL", "USR1",

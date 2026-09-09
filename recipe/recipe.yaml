@@ -9,10 +9,13 @@ package:
 source:
   url: https://github.com/tsl0922/${{ name }}/archive/${{ version }}.tar.gz
   sha256: 039dd995229377caee919898b7bd54484accec3bba49c118e2d5cd6ec51e3650
+  patches:
+    # backport of https://github.com/tsl0922/ttyd/pull/1502, needed to compile
+    # with MSVC; only touches code behind _MSC_VER / MSVC guards
+    - patches/0001-add-msvc-native-build-support-for-windows.patch
 
 build:
-  number: 1
-  skip: win
+  number: 2
 
 requirements:
   build:
@@ -28,6 +31,10 @@ requirements:
     - openssl
     - libuv
     - zlib
+    # MSVC does not ship getopt.h
+    - if: win
+      then:
+        - getopt-win32
   run:
     - libuv
 
