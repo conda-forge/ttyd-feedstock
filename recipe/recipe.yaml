@@ -50,6 +50,7 @@ about:
   repository: https://github.com/tsl0922/ttyd
 
 extra:
+  feedstock-name: ttyd
   recipe-maintainers:
     - sodre
     - wolfv
