@@ -15,7 +15,7 @@ source:
     - patches/0001-add-msvc-native-build-support-for-windows.patch
 
 build:
-  number: 2
+  number: 3
 
 requirements:
   build:
