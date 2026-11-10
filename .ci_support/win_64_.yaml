@@ -9,7 +9,7 @@ channel_targets:
 cxx_compiler:
 - vs2022
 json_c:
-- '0.18'
+- '0.19'
 openssl:
 - '3.5'
 target_platform:
